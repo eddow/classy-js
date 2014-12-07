@@ -6,35 +6,26 @@
  * - Change, publish, use at leisure, even for profit - but refer the real author
  * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitty death
  */
-(function() {
-	var classCounter = 0, rootObject = {};
-	Object.defineProperties(rootObject, {
-		legacy: {
-			enumerable: false,
-			get: function() {
-				var me= this, f = arguments.callee.caller, chain = f.parent||f.caller.parent, called;
-				if(chain) {
-					called = chain.original||chain;
-					return dob=ext(function() { return called.apply(me, arguments); }, {
-						parent: chain.parent,
-						chain: ext(function() {
-							var args = [].slice.call(arguments, 0);
-							return called.apply(me, args.concat([].slice.call(f.arguments, args.length)));
-						}, {parent: chain.parent}),
-						apply: ext(function(args) { return called.apply(me, args); }, {parent: chain.parent})
-					});
-				}
-				return classy.emptyLegacy;
+window.classy = (function() {
+	var classy = {}, classCounter = 0, rootObject = {};
+	Object.defineProperty(rootObject, 'legacy', {
+		enumerable: false,
+		get: function() {
+			var me= this, f = arguments.callee.caller, chain = f.caller.parent, called;
+			if(chain) {
+				called = chain.original||chain;
+				return dob=ext(function() { return called.apply(me, arguments); }, {
+					parent: chain.parent,
+					chain: ext(function() {
+						var args = [].slice.call(arguments, 0);
+						return called.apply(me, args.concat([].slice.call(f.arguments, args.length)));
+					}, {parent: chain.parent}),
+					apply: ext(function(args) { return called.apply(me, args); }, {parent: chain.parent})
+				});
 			}
-		},
-		__private__: {
-			enumerable: false,
-			configurable: false,
-			writable: false,
-			value: {}
+			return classy.emptyLegacy;
 		}
 	});
-	window.classy = {};
 	function setMbrs(obj, mbrs) {
 		var i, oFcts, mFcts;
 		function pairGetSet(name, originalValue, todos) {
@@ -109,7 +100,7 @@
 //TODO: when .get returns a function and this function calls its legacy
 				if(obj.hasOwnProperty(i)) {
 					if(mFcts ^ ('function'=== typeof obj[i]))
-						throw new classy.class.exception('Member "'+i+'" is heritated - once a function once not');
+						throw new classy.exception('Member "'+i+'" is heritated - once a function once not');
 					if(mFcts) addLegacy(obj[i], oFcts);
 				} else obj[i] = oFcts;
 			}
@@ -124,9 +115,9 @@
 		return dst;
 	}
 	
-	ext(classy, {
+	classy = {
 		emptyLegacy: ext(function() {}, {
-			call: function() {},
+			chain: function() {},
 			apply: function() {}
 		}),
 		class: function(members) {
@@ -151,7 +142,7 @@
 					clss = list[i];
 					classes[clss.cid] = clss;
 					for(j=0; j< inheriting.length; ++j) {
-						if(inheriting[j] === clss.cid) throw new classy.class.exception('Cycle in inheritance');
+						if(inheriting[j] === clss.cid) throw new classy.exception('Cycle in inheritance');
 						precede(inheriting[j], clss.cid, true);
 					}
 					len = before.length;
@@ -192,6 +183,12 @@
 			orgCtor = rv.constructor;
 			function ctor() {
 				var me=this, ctr = orgCtor;
+				Object.defineProperty(me, '__private__', {
+					enumerable: false,
+					configurable: false,
+					writable: false,
+					value: {}
+				});
 				while(ctr) {
 					me.__private__.__constructorCalled__ = 0;
 					ctr.apply(me, arguments);
@@ -211,9 +208,9 @@
 				{
 					constructor: classy.class,
 					prototype: rv,
-					inherits: xtnds,
-					members: members,
-					fleg: mFleg,
+					inherits: Object.freeze(xtnds),
+					members: Object.freeze(members),
+					fleg: Object.freeze(mFleg),
 					cid: ++classCounter,
 					classify: function(obj) {
 						var me= this, ctr = obj.constructor;
@@ -258,5 +255,6 @@
 				}
 			}
 		})
-	});
+	};
+	return classy;
 })();
