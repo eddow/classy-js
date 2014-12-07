@@ -31,12 +31,8 @@ window.classy = (function() {
 		var i, oFcts, mFcts;
 		function pairGetSet(name, originalValue, todos) {
 			var rv = {
-				set: todos.set&&todos.get?function(v) { return this.__private__[name] = v; }:false,
-				get: todos.get?(
-					todos.set?
-					function() { return this.__private__.hasOwnProperty(name)?this.__private__[name]:originalValue; }:
-					function() { return originalValue; }
-				):false
+				set: todos.set&&todos.get?function(v) { return originalValue = v; }:false,
+				get: todos.get?(function() { return originalValue; }):false
 			};
 			if(rv.set) rv.set.terminal;
 			if(rv.get) rv.get.terminal;
@@ -57,7 +53,7 @@ window.classy = (function() {
 			if(!original) return;
 			var Classy;
 			Classy = 'constructor'=== name?
-				function() { ++this.__private__.__constructorCalled__; return original.apply(this, arguments); }:
+				function() { ++this.__constructorCalled__; return original.apply(this, arguments); }:
 				function() { return original.apply(this, arguments); };
 			Object.defineProperty(Classy, 'original', {
 				value: original,
@@ -185,19 +181,28 @@ window.classy = (function() {
 			setMbrs(rv, mFleg[i].members);
 		orgCtor = rv.constructor;
 		function ctor() {
-			var me=this, ctr = orgCtor;
-			Object.defineProperty(me, '__private__', {
-				enumerable: false,
-				configurable: false,
-				writable: false,
-				value: {}
+			var me=this, ctr = orgCtor, constructorCalled, nctor;
+			ctr = nctor = ext((function(original) {
+				return function() { ++constructorCalled; return original.apply(this, arguments); };
+			})(ctr.original), {
+				parent: ctr.parent,
+				original: ctr.original
 			});
-			while(ctr) {
-				me.__private__.__constructorCalled__ = 0;
-				ctr.apply(me, arguments);
-				while(me.__private__.__constructorCalled__--) ctr = ctr.parent;
+			while(ctr.parent) {
+				ctr = ctr.parent = ext((function(original) {
+					return function() { ++constructorCalled; return original.apply(this, arguments); };
+				})(ctr.parent.original), {
+				parent: ctr.parent.parent,
+				original: ctr.parent.original
+			});
 			}
-			delete me.__private__.__constructorCalled__;
+			ctr = nctor;
+			while(ctr) {
+				constructorCalled = 0;
+				ctr.apply(me, arguments);
+				while(constructorCalled--) ctr = ctr.parent;
+			}
+			delete constructorCalled;
 		};
 		cname = members.constructor.name || 'ClassyObject';
 		rv.constructor = eval('[function '+cname+'() { return ctor.apply(this, arguments); }]')[0];
