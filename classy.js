@@ -7,7 +7,7 @@
  * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitty death
  */
 window.classy = (function() {
-	var classy = {}, classCounter = 0, rootObject = {};
+	var classCounter = 0, rootObject = {};
 	Object.defineProperty(rootObject, 'legacy', {
 		enumerable: false,
 		get: function() {
@@ -38,10 +38,15 @@ window.classy = (function() {
 					function() { return originalValue; }
 				):false
 			};
+			if(rv.set) rv.set.terminal;
+			if(rv.get) rv.get.terminal;
 			return rv;
 		}
 		function addLegacy(fct, last) {
-			while(fct.parent) fct = fct.parent;
+			while(fct.parent) {
+				fct = fct.parent;
+				if(fct.isTerminal) return;
+			}
 			Object.defineProperty(fct, 'parent', {
 				value: last,
 				writable: false,
@@ -73,8 +78,9 @@ window.classy = (function() {
 			oFcts = lookups(obj);
 			mFcts = lookups(mbrs);
 		
-			if(oFcts && !mFcts) mFcts = pairGetSet(i, mbrs[i], oFcts);
-			else if(mFcts) {
+			if(oFcts && !mFcts) {
+				mFcts = pairGetSet(i, mbrs[i], oFcts);
+			} else if(mFcts) {
 				mFcts.get = cloneFct(mFcts.get, 'get_i');
 				mFcts.set = cloneFct(mFcts.set, 'set_i');
 				if(!oFcts) {
@@ -115,117 +121,117 @@ window.classy = (function() {
 					dst[j] = obj[j];
 		return dst;
 	}
+	ext(Function.prototype, { get terminal() { this.isTerminal = true; return this; } });
 	
-	classy = {
+	classy = ext(function(members) {
+		var rv = false,
+			xtnds = [].slice.call(arguments, 1), mFleg=[], orders = {}, i, j,
+			waitings = {}, ready = 'me', classes = {}, orgCtor, cname;
+		//rv -> {cidA: {cidB: true (A before B)} }
+		//classes -> {cid: class object}
+		function order(rv, classes, list, before, inheriting) {
+			var i, j, clss, len;
+			function precede(a, b, force) {
+				rv[a] || (rv[a] = {});
+				rv[b] || (rv[b] = {});
+				if(!rv[b][a])
+					rv[a][b] = true;
+				else if(force) {
+					rv[a][b] = true;
+					delete rv[b][a];
+				}
+			}
+			for(i=0; i<list.length; ++i) {
+				clss = list[i];
+				classes[clss.cid] = clss;
+				for(j=0; j< inheriting.length; ++j) {
+					if(inheriting[j] === clss.cid) throw new classy.exception('Cycle in inheritance');
+					precede(inheriting[j], clss.cid, true);
+				}
+				len = before.length;
+				before.push(clss);
+				for(j=0; j< len; ++j) {
+					if(before[j] === clss) before.pop();
+					else precede(before[j].cid, clss.cid, false);
+				}
+				if(clss.inherits.length) {
+					inheriting.push(clss.cid);
+					order(rv, classes, clss.inherits, before, inheriting);
+					inheriting.pop();
+				}
+			}
+		}
+		order(orders, classes, xtnds, [], [ready]);
+		for(i in orders.me) waitings[i] = 0;
+		for(i in orders) for(j in orders[i]) ++waitings[j];
+		while(ready) {
+			j = ready;
+			ready = false;
+			for(i in orders[j]) {
+				if(!--waitings[i]) {
+					//@ assert Order is perfect, there is one ready at a time : !ready
+					ready = i;
+				}
+			}
+			if(ready) mFleg.push(classes[ready]);
+		}
+		//todo: assert \/x, !waitings[x]
+
+		members || (members = {});
+		if({}.constructor=== members.constructor) members.constructor = (function() {});
+		rv = Object.create(rootObject);
+		setMbrs(rv, members);
+		for(i = 0; i< mFleg.length; ++i)
+			setMbrs(rv, mFleg[i].members);
+		orgCtor = rv.constructor;
+		function ctor() {
+			var me=this, ctr = orgCtor;
+			Object.defineProperty(me, '__private__', {
+				enumerable: false,
+				configurable: false,
+				writable: false,
+				value: {}
+			});
+			while(ctr) {
+				me.__private__.__constructorCalled__ = 0;
+				ctr.apply(me, arguments);
+				while(me.__private__.__constructorCalled__--) ctr = ctr.parent;
+			}
+			delete me.__private__.__constructorCalled__;
+		};
+		cname = members.constructor.name || 'ClassyObject';
+		rv.constructor = eval('[function '+cname+'() { return ctor.apply(this, arguments); }]')[0];
+		Object.defineProperty(rv, 'constructor', {
+			enumerable: false,
+			writable: false,
+			configurable: false
+		});
+		return ext(
+			rv.constructor,
+			{
+				constructor: classy,
+				prototype: rv,
+				inherits: Object.freeze(xtnds),
+				members: Object.freeze(members),
+				fleg: Object.freeze(mFleg),
+				cid: ++classCounter,
+				classify: function(obj) {
+					var me= this, ctr = obj.constructor;
+					return me === ctr || 0<= ctr.fleg.indexOf(me);
+				},
+				extends: function(parent) {
+					return 0<= this.fleg.indexOf(parent);
+				},
+				toString: function() {
+					return '[class'+(cname?' '+cname:'')+']';
+				}
+			}
+		);
+	}, {
 		emptyLegacy: ext(function() {}, {
 			chain: function() {},
 			apply: function() {}
 		}),
-		class: function(members) {
-			var rv = false,
-				xtnds = [].slice.call(arguments, 1), mFleg=[], orders = {}, i, j,
-				waitings = {}, ready = 'me', classes = {}, orgCtor, cname;
-			//rv -> {cidA: {cidB: true (A before B)} }
-			//classes -> {cid: class object}
-			function order(rv, classes, list, before, inheriting) {
-				var i, j, clss, len;
-				function precede(a, b, force) {
-					rv[a] || (rv[a] = {});
-					rv[b] || (rv[b] = {});
-					if(!rv[b][a])
-						rv[a][b] = true;
-					else if(force) {
-						rv[a][b] = true;
-						delete rv[b][a];
-					}
-				}
-				for(i=0; i<list.length; ++i) {
-					clss = list[i];
-					classes[clss.cid] = clss;
-					for(j=0; j< inheriting.length; ++j) {
-						if(inheriting[j] === clss.cid) throw new classy.exception('Cycle in inheritance');
-						precede(inheriting[j], clss.cid, true);
-					}
-					len = before.length;
-					before.push(clss);
-					for(j=0; j< len; ++j) {
-						if(before[j] === clss) before.pop();
-						else precede(before[j].cid, clss.cid, false);
-					}
-					if(clss.inherits.length) {
-						inheriting.push(clss.cid);
-						order(rv, classes, clss.inherits, before, inheriting);
-						inheriting.pop();
-					}
-				}
-			}
-			order(orders, classes, xtnds, [], [ready]);
-			for(i in orders.me) waitings[i] = 0;
-			for(i in orders) for(j in orders[i]) ++waitings[j];
-			while(ready) {
-				j = ready;
-				ready = false;
-				for(i in orders[j]) {
-					if(!--waitings[i]) {
-						//@ assert Order is perfect, there is one ready at a time : !ready
-						ready = i;
-					}
-				}
-				if(ready) mFleg.push(classes[ready]);
-			}
-			//todo: assert \/x, !waitings[x]
-			
-			members || (members = {});
-			if({}.constructor=== members.constructor) members.constructor = (function() {});
-			rv = Object.create(rootObject);
-			setMbrs(rv, members);
-			for(i = 0; i< mFleg.length; ++i)
-				setMbrs(rv, mFleg[i].members);
-			orgCtor = rv.constructor;
-			function ctor() {
-				var me=this, ctr = orgCtor;
-				Object.defineProperty(me, '__private__', {
-					enumerable: false,
-					configurable: false,
-					writable: false,
-					value: {}
-				});
-				while(ctr) {
-					me.__private__.__constructorCalled__ = 0;
-					ctr.apply(me, arguments);
-					while(me.__private__.__constructorCalled__--) ctr = ctr.parent;
-				}
-				delete me.__private__.__constructorCalled__;
-			};
-			cname = members.constructor.name || 'ClassyObject';
-			rv.constructor = eval('[function '+cname+'() { return ctor.apply(this, arguments); }]')[0];
-			Object.defineProperty(rv, 'constructor', {
-				enumerable: false,
-				writable: false,
-				configurable: false
-			});
-			return ext(
-				rv.constructor,
-				{
-					constructor: classy.class,
-					prototype: rv,
-					inherits: Object.freeze(xtnds),
-					members: Object.freeze(members),
-					fleg: Object.freeze(mFleg),
-					cid: ++classCounter,
-					classify: function(obj) {
-						var me= this, ctr = obj.constructor;
-						return me === ctr || 0<= ctr.fleg.indexOf(me);
-					},
-					extends: function(parent) {
-						return 0<= this.fleg.indexOf(parent);
-					},
-					toString: function() {
-						return '[class'+(cname?' '+cname:'')+']';
-					}
-				}
-			);
-		},
 		exception: function(msg) {
 			this.message = msg;
 		},
@@ -234,8 +240,8 @@ window.classy = (function() {
 			members || (members = {});
 			classes = [members];
 			for(i=0; i<xtnds.length; ++i)
-				classes.push(classy.class=== xtnds[i].constructor?xtnds[i]:xtnds[i].constructor);
-			mClass = classy.class.apply(this, classes);
+				classes.push(classy=== xtnds[i].constructor?xtnds[i]:xtnds[i].constructor);
+			mClass = classy.apply(this, classes);
 			fleg = mClass.fleg;
 			obj = new mClass();
 			return obj;
@@ -253,6 +259,7 @@ window.classy = (function() {
 				}
 			}
 		})
-	};
+	});
+	classy.class = classy;
 	return classy;
 })();
