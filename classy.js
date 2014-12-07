@@ -27,6 +27,7 @@ window.classy = (function() {
 		}
 	});
 	function setMbrs(obj, mbrs) {
+		if(!mbrs) return;
 		var i, oFcts, mFcts;
 		function pairGetSet(name, originalValue, todos) {
 			var rv = {
@@ -242,15 +243,12 @@ window.classy = (function() {
 			extendedMember: function(me, mbrName) {
 				if(!(mbrName instanceof Array)) mbrName = [].slice.call(arguments, 1);
 				var i, j, mbr, fleg = me.constructor.fleg, rv;
-				function setMbrsIf(mbrs) {
-					if(mbrs) setMbrs(rv, mbrs);
-				}
 				for(i=0; i< mbrName.length; ++i) {
 					rv = {};
 					mbr = mbrName[i];
-					setMbrsIf(me[mbr]);
+					setMbrs(rv, me[mbr]);
 					for(j = 0; j< fleg.length; ++j)
-						setMbrsIf(fleg[j].members[mbr]);
+						setMbrs(rv, fleg[j].members[mbr]);
 					me[mbr] = rv || {};
 				}
 			}
