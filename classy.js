@@ -7,7 +7,7 @@
  * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitty death
  */
 window.classy = (function() {
-	var classCounter = 0, rootObject = {}, objectCounter = 0, getSetCache = {};
+	var classCounter = 0, rootObject = {}, objectCounter = 0, getSetCache = {}, constructorCalled = {};
 	Object.defineProperty(rootObject, 'legacy', {
 		enumerable: false,
 		get: function() {
@@ -39,8 +39,8 @@ window.classy = (function() {
 					get: todos.get?(
 						todos.set?
 						function() {
-							var uid= this.oid;
-							return getSetCache[uid] && getSetCache[uid].hasOwnProperty(name)?getSetCache[uid][name]:originalValue;
+							var cached = getSetCache[this.oid];
+							return cached && cached.hasOwnProperty(name)?cached[name]:originalValue;
 						}:
 						function() { return originalValue; }
 					):false
@@ -63,7 +63,9 @@ window.classy = (function() {
 		function cloneFct(original, name) {
 			if(!original) return;
 			var Classy;
-			Classy = function() { return original.apply(this, arguments); };
+			Classy = 'constructor'=== name?
+				function() { ++constructorCalled[this.oid]; return original.apply(this, arguments); }:
+				function() { return original.apply(this, arguments); };
 			Object.defineProperty(Classy, 'original', {
 				value: original,
 				writable: false,
@@ -190,7 +192,7 @@ window.classy = (function() {
 			setMbrs(rv, mFleg[i].members);
 		orgCtor = rv.constructor;
 		function ctor() {
-			var me=this, ctr = orgCtor, constructorCalled, nctor;
+			var me=this, ctr = orgCtor;
 			
 			Object.defineProperty(me, 'oid', {
 				value: ++objectCounter,
@@ -199,27 +201,12 @@ window.classy = (function() {
 				configurable: false
 			});
 			
-			ctr = nctor = ext((function(original) {
-				return function() { ++constructorCalled; return original.apply(this, arguments); };
-			})(ctr.original), {
-				parent: ctr.parent,
-				original: ctr.original
-			});
-			while(ctr.parent) {
-				ctr = ctr.parent = ext((function(original) {
-					return function() { ++constructorCalled; return original.apply(this, arguments); };
-				})(ctr.parent.original), {
-					parent: ctr.parent.parent,
-					original: ctr.parent.original
-			});
-			}
-			ctr = nctor;
 			while(ctr) {
-				constructorCalled = 0;
+				constructorCalled[me.oid] = 0;
 				ctr.apply(me, arguments);
-				while(constructorCalled--) ctr = ctr.parent;
+				while(constructorCalled[me.oid]--) ctr = ctr.parent;
 			}
-			delete constructorCalled;
+			delete constructorCalled[me.oid];
 		};
 		cname = members.constructor.name || 'ClassyObject';
 		rv.constructor = eval('[function '+cname+'() { return ctor.apply(this, arguments); }]')[0];
