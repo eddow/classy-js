@@ -7,7 +7,7 @@
  * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitty death
  */
 window.classy = (function() {
-	var classCounter = 0, rootObject = {};
+	var classCounter = 0, rootObject = {}, objectCounter = 0, getSetCache = {};
 	Object.defineProperty(rootObject, 'legacy', {
 		enumerable: false,
 		get: function() {
@@ -31,8 +31,19 @@ window.classy = (function() {
 		var i, oFcts, mFcts;
 		function pairGetSet(name, originalValue, todos) {
 			var rv = {
-				set: todos.set&&todos.get?function(v) { return originalValue = v; }:false,
-				get: todos.get?(function() { return originalValue; }):false
+					set: todos.set&&todos.get?function(v) {
+						var uid= this.oid;
+						getSetCache[uid] || (getSetCache[uid]={});
+						getSetCache[uid][name] = v;
+					}:false,
+					get: todos.get?(
+						todos.set?
+						function() {
+							var uid= this.oid;
+							return getSetCache[uid] && getSetCache[uid].hasOwnProperty(name)?getSetCache[uid][name]:originalValue;
+						}:
+						function() { return originalValue; }
+					):false
 			};
 			if(rv.set) rv.set.terminal;
 			if(rv.get) rv.get.terminal;
@@ -52,9 +63,7 @@ window.classy = (function() {
 		function cloneFct(original, name) {
 			if(!original) return;
 			var Classy;
-			Classy = 'constructor'=== name?
-				function() { ++this.__constructorCalled__; return original.apply(this, arguments); }:
-				function() { return original.apply(this, arguments); };
+			Classy = function() { return original.apply(this, arguments); };
 			Object.defineProperty(Classy, 'original', {
 				value: original,
 				writable: false,
@@ -182,6 +191,14 @@ window.classy = (function() {
 		orgCtor = rv.constructor;
 		function ctor() {
 			var me=this, ctr = orgCtor, constructorCalled, nctor;
+			
+			Object.defineProperty(me, 'oid', {
+				value: ++objectCounter,
+				writable: false,
+				enumerable: false,
+				configurable: false
+			});
+			
 			ctr = nctor = ext((function(original) {
 				return function() { ++constructorCalled; return original.apply(this, arguments); };
 			})(ctr.original), {
@@ -192,8 +209,8 @@ window.classy = (function() {
 				ctr = ctr.parent = ext((function(original) {
 					return function() { ++constructorCalled; return original.apply(this, arguments); };
 				})(ctr.parent.original), {
-				parent: ctr.parent.parent,
-				original: ctr.parent.original
+					parent: ctr.parent.parent,
+					original: ctr.parent.original
 			});
 			}
 			ctr = nctor;
