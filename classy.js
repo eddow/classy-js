@@ -1,8 +1,8 @@
 /*
- * Class Kernel - v1.0 - 2014.12.06
+ * Class Kernel - v1.0 - 2014.12.10
  * 
  * Francois Marie De Mey <eeddow@gmail.com>
- * License: GPL / tl;dr: DON'T BE AN ASS.
+ * License: GPL / tl;dr: DON'T BE AN ARSE - Be fair
  * - Change, publish, use at leisure - but refer the real author
  * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitten death
  */
@@ -77,7 +77,7 @@ window.classy = (function() {
 			var Classy;
 			Classy = 'constructor'=== name?
 				function ClassyWrapper() { ++constructorCalled[this.oid]; return original.apply(this, arguments); }:
-				ext(function ClassyWrapper() {return original.apply(this, arguments); }, {bypass: true});
+				ext(function ClassyWrapper() { return original.apply(this, arguments); }, {bypass: true});
 			Object.defineProperty(Classy, 'original', {
 				value: original,
 				writable: false,
@@ -160,15 +160,11 @@ window.classy = (function() {
 				if(force) {
 					rv[a][b] = 'f';
 					//@ assert No contradictory force : 'f'!== rv[b][a]
-					var recur = 0;
 					function prune(nb) {
-						if(1000< ++recur)
-							debugger;
 						for(var i in orders[nb]) {
 							delete orders[i][a];
 							prune(i);
 						}
-						--recur;
 					}
 					prune(b);
 				} else if(!rv[a][b]) {
