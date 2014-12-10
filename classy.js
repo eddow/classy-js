@@ -4,11 +4,11 @@
  * Francois Marie De Mey <eeddow@gmail.com>
  * License: GPL / tl;dr: DON'T BE AN ASS.
  * - Change, publish, use at leisure - but refer the real author
- * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitty death
+ * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitten death
  */
 window.classy = (function() {
 	function incString(s) {
-		//return 1+s;
+		//return ++s;
 		if(''=== s) return String.fromCharCode(0);
 		var code = 1+ s.charCodeAt(0), substr = s.substr(1);
 		return 255< code?
@@ -74,15 +74,10 @@ window.classy = (function() {
 		}
 		function cloneFct(original, name) {
 			if(!original) return;
-			var Classy, dbgcpt = 0;
+			var Classy;
 			Classy = 'constructor'=== name?
 				function ClassyWrapper() { ++constructorCalled[this.oid]; return original.apply(this, arguments); }:
-				ext(function ClassyWrapper() {
-					if(100< ++dbgcpt)
-						debugger;
-					try{ return original.apply(this, arguments); }
-					finally {--dbgcpt;}
-				}, {bypass: true});
+				ext(function ClassyWrapper() {return original.apply(this, arguments); }, {bypass: true});
 			Object.defineProperty(Classy, 'original', {
 				value: original,
 				writable: false,
