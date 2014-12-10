@@ -3,7 +3,7 @@
  * 
  * Francois Marie De Mey <eeddow@gmail.com>
  * License: GPL / tl;dr: DON'T BE AN ASS.
- * - Change, publish, use at leisure, even for profit - but refer the real author
+ * - Change, publish, use at leisure - but refer the real author
  * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitty death
  */
 window.classy = (function() {
