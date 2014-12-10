@@ -13,7 +13,7 @@ window.classy = (function() {
 		get: function() {
 			var me= this, f = arguments.callee.caller, chain = f.caller.parent, called;
 			if(chain) {
-				called = chain.original||chain;
+				called = chain.bypass?chain.original||chain:chain;
 				return dob=ext(function() { return called.apply(me, arguments); }, {
 					parent: chain.parent,
 					chain: ext(function() {
@@ -65,7 +65,7 @@ window.classy = (function() {
 			var Classy;
 			Classy = 'constructor'=== name?
 				function() { ++constructorCalled[this.oid]; return original.apply(this, arguments); }:
-				function() { return original.apply(this, arguments); };
+				ext(function() { return original.apply(this, arguments); }, {bypass: true});
 			Object.defineProperty(Classy, 'original', {
 				value: original,
 				writable: false,
@@ -150,6 +150,7 @@ window.classy = (function() {
 			}
 			for(i=0; i<list.length; ++i) {
 				clss = list[i];
+				if(classy!== clss.constructor) throw new classy.exception('Specified inheritance is not Classy');
 				classes[clss.cid] = clss;
 				for(j=0; j< inheriting.length; ++j) {
 					if(inheriting[j] === clss.cid) throw new classy.exception('Cycle in inheritance');
