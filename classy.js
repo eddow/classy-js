@@ -248,13 +248,8 @@ window.classy = (function() {
 			fname = '_'+cname.replace(/[^\w]/g, '_');
 		} else fname = cname = 'ClassyObject';
 		rv.constructor = eval('[function '+fname+'() { return ctor.apply(this, arguments); }]')[0];
-		Object.defineProperty(rv, 'constructor', {
-			enumerable: false,
-			writable: false,
-			configurable: false
-		});
 		
-		ext(
+		rv = ext(
 			rv.constructor,
 			classes = {
 				constructor: classy,
@@ -282,7 +277,7 @@ window.classy = (function() {
 			configurable: false
 		};
 		Object.defineProperties(rv, classes);
-		return rv.constructor;
+		return rv;
 	}, {
 		emptyLegacy: ext(function() {}, {
 			chain: function() {},
