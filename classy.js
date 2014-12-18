@@ -25,7 +25,7 @@ window.classy = (function() {
 			if(chain) chain = chain.parent;
 			if(chain) {
 				called = chain.bypass?chain.original||chain:chain;
-				return dob=ext(function ClassyLegacy() { return called.apply(me, arguments); }, {
+				return ext(function ClassyLegacy() { return called.apply(me, arguments); }, {
 					parent: chain.parent,
 					chain: ext(function ClassyChain() {
 						var args = [].slice.call(arguments, 0);
