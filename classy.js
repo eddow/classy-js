@@ -7,16 +7,38 @@
  * - The code comes with no warranty of any kind: The author declines any responsability in anything, from data loss to kitten death
  */
 window.classy = (function() {
-	function incString(s) {
-		//return ++s;
-		if(''=== s) return String.fromCharCode(0);
-		var code = 1+ s.charCodeAt(0), substr = s.substr(1);
-		return 255< code?
-			String.fromCharCode(0)+incString(substr):
-			String.fromCharCode(code)+ substr;
+	function ext(dst) {
+		var i, j, args = arguments, obj;
+		for(i = 1; i<args.length; ++i)
+			for(j in obj = args[i])
+				if(obj.hasOwnProperty(j))
+					dst[j] = obj[j];
+		return dst;
 	}
-	var classCounter = '', objectCounter = '',
-	//var classCounter = 0, objectCounter = 0,
+	//Little-Endian Base64
+	function nextLEB64(s) {
+		var rv = '', tval = 0;
+		while(0=== tval && ''!== s) {
+			rv += base64[tval = (1+base64.indexOf(s[0])) & 63];
+			s = s.substr(1);
+		}
+		if(0=== tval) return rv+base64[0];
+		return rv+s;
+	}
+	function idSpace(name) {
+		var value = '';
+		this.name = name||'someIdSpace';
+		this.next = function() {
+			return value = nextLEB64(value);
+		};
+	}
+	ext(idSpace, {
+		prototype: {
+			toString: function() { return this.name; }
+		}
+	});
+	var base64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-',
+		classCounter = new idSpace('classyClassCounter'), objectCounter = new idSpace('classyObjectCounter'),
 		rootObject = {}, getSetCache = {}, constructorCalled = {};
 	Object.defineProperty(rootObject, 'legacy', {
 		enumerable: false,
@@ -133,14 +155,6 @@ window.classy = (function() {
 			}
 		}
 	}
-	function ext(dst) {
-		var i, j, args = arguments, obj;
-		for(i = 1; i<args.length; ++i)
-			for(j in obj = args[i])
-				if(obj.hasOwnProperty(j))
-					dst[j] = obj[j];
-		return dst;
-	}
 	ext(Function.prototype, {
 		get terminal() { this.isTerminal = true; return this; },
 		classify: function RegularClassify(obj) { return obj instanceof this; }	// instanceof surrogate - in case of classy is changed to a regular class
@@ -149,6 +163,9 @@ window.classy = (function() {
 	classy = ext(function Classy(members) {
 		var rv = false, xtnds = [].slice.call(arguments, 1), mFleg=[], orders = {},
 			i, j, waitings = {}, ready = '', classes = {}, orgCtor, cname, fname;
+			if('function'=== typeof members)
+				//if members.prototype.constructor already exists, there is a conflict between 2 constructors - in ExtJs, the function is just a .conctructor.apply
+				members = ext({constructor: members}, members.prototype||{});
 		//rv -> {cidA: {cidB: true (A before B)} }
 		//classes -> {cid: class object}
 		function order(rv, classes, list, before, inheriting) {
@@ -178,10 +195,17 @@ window.classy = (function() {
 			}
 			for(i=0; i<list.length; ++i) {
 				if(!(clss = list[i])) throw new classy.exception('Empty inheritance');
-				if(classy!== clss.constructor) throw new classy.exception('Specified inheritance is not Classy');
+				if(classy!== clss.constructor) {
+					if(clss.constructor.classyVersion)
+						clss = clss.constructor.classyVersion;
+					else clss = clss.constructor.classyVersion = classy(clss);
+					list[i] = clss;
+				}
+					//throw new classy.exception('Specified inheritance is not Classy');
 				classes[clss.cid] = clss;
 				for(j=0; j< inheriting.length; ++j) {
-					if(inheriting[j] === clss.cid) throw new classy.exception('Cycle in inheritance');
+					if(inheriting[j] === clss.cid)
+						throw new classy.exception('Cycle in inheritance');	//Impossible
 					precede(inheriting[j], clss.cid, true);
 				}
 				len = before.length;
@@ -211,9 +235,11 @@ window.classy = (function() {
 			}
 			if(ready) mFleg.push(classes[ready]);
 		}
+		//@ mode debug
 		for(i in waitings)
 			//@ assert No class is left waiting in the 'to-extend' queue : !waitings[i]
 			;
+		//@ endmode
 
 		members || (members = {});
 		//@ assert Given members are pure objects : Object.getPrototypeOf(members) === Object.prototype
@@ -227,7 +253,7 @@ window.classy = (function() {
 			var me=this, ctr = orgCtor;
 			
 			Object.defineProperty(me, 'oid', {
-				value: objectCounter = incString(objectCounter),
+				value: objectCounter.next(),
 				writable: false,
 				enumerable: false,
 				configurable: false
@@ -257,7 +283,7 @@ window.classy = (function() {
 				inherits: Object.freeze(xtnds),
 				members: Object.freeze(members),
 				fleg: Object.freeze(mFleg),
-				cid: classCounter = incString(classCounter),
+				cid: classCounter.next(),
 				classify: function  Classiffy(obj) {
 					var me= this, ctr = obj.constructor;
 					return me === ctr || (ctr.fleg && 0<= ctr.fleg.indexOf(me));
@@ -279,6 +305,7 @@ window.classy = (function() {
 		Object.defineProperties(rv, classes);
 		return rv;
 	}, {
+		idSpace: idSpace,
 		emptyLegacy: ext(function() {}, {
 			chain: function() {},
 			apply: function() {}
