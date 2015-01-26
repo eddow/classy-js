@@ -25,6 +25,9 @@ window.classy = (function() {
 		if(0=== tval) return rv+base64[0];
 		return rv+s;
 	}
+	function fit4inheritance(obj) {
+		return obj && ('object'=== typeof obj || 'function'=== typeof obj)
+	}
 	function idSpace(name) {
 		var value = '';
 		this.name = name||'someIdSpace';
@@ -32,11 +35,9 @@ window.classy = (function() {
 			return value = nextLEB64(value);
 		};
 	}
-	ext(idSpace, {
-		prototype: {
-			toString: function() { return this.name; }
-		}
-	});
+	idSpace.prototype = {
+		toString: function() { return this.name; }
+	};
 	var base64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-',
 		classCounter = new idSpace('classyClassCounter'), objectCounter = new idSpace('classyObjectCounter'),
 		rootObject = {}, getSetCache = {}, constructorCalled = {};
@@ -46,6 +47,9 @@ window.classy = (function() {
 			var me= this, f = arguments.callee.caller, chain = f.caller, called;
 			if(chain) chain = chain.parent;
 			if(chain) {
+				//TODO: use ('ClassyWrapper'=== chain.name) instead of (chain.bypass) ? (check multi-browser compatibility)
+				//https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/name#Browser_compatibility
+				//Checked (check again later) - not supported by IE
 				called = chain.bypass?chain.original||chain:chain;
 				return ext(function ClassyLegacy() { return called.apply(me, arguments); }, {
 					parent: chain.parent,
@@ -96,9 +100,8 @@ window.classy = (function() {
 		}
 		function cloneFct(original, name) {
 			if(!original) return;
-			var Classy;
-			Classy = 'constructor'=== name?
-				function ClassyWrapper() { ++constructorCalled[this.oid]; return original.apply(this, arguments); }:
+			var Classy = 'constructor'=== name?
+				function ClassyConstructorWrapper() { ++constructorCalled[this.oid]; return original.apply(this, arguments); }:
 				ext(function ClassyWrapper() { return original.apply(this, arguments); }, {bypass: true});
 			Object.defineProperty(Classy, 'original', {
 				value: original,
@@ -194,14 +197,13 @@ window.classy = (function() {
 				}
 			}
 			for(i=0; i<list.length; ++i) {
-				if(!(clss = list[i])) throw new classy.exception('Empty inheritance');
+				if(!fit4inheritance(clss = list[i])) throw new classy.exception('Unfitting inheritance : ' + i);
 				if(classy!== clss.constructor) {
 					if(clss.constructor.classyVersion)
 						clss = clss.constructor.classyVersion;
 					else clss = clss.constructor.classyVersion = classy(clss);
 					list[i] = clss;
 				}
-					//throw new classy.exception('Specified inheritance is not Classy');
 				classes[clss.cid] = clss;
 				for(j=0; j< inheriting.length; ++j) {
 					if(inheriting[j] === clss.cid)
@@ -324,8 +326,8 @@ window.classy = (function() {
 			members || (members = {});
 			classes = [members];
 			for(i=0; i<xtnds.length; ++i)
-				if(!xtnds[i]) throw new classy.exception('Empty inheritance');
-				else classes.push(classy=== xtnds[i].constructor?xtnds[i]:xtnds[i].constructor);
+				if(!fit4inheritance(xtnds[i])) throw new classy.exception('Unfitting inheritance : ' + i);
+				else classes.push('function'=== typeof xtnds[i]?xtnds[i]:xtnds[i].constructor);
 			classes.push(classy.singleton.root || (classy.singleton.root = classy({
 				constructor: function Singleton() {},
 				toString: function () {
