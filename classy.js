@@ -25,9 +25,6 @@ window.classy = (function() {
 		if(0=== tval) return rv+base64[0];
 		return rv+s;
 	}
-	function fit4inheritance(obj) {
-		return obj && ('object'=== typeof obj || 'function'=== typeof obj)
-	}
 	function idSpace(name) {
 		var value = '';
 		this.name = name||'someIdSpace';
@@ -155,7 +152,7 @@ window.classy = (function() {
 		}
 	}
 	ext(Function.prototype, {
-		def: function(obj) { ext(this, obj); return this; },
+		flag: function(obj) { return ext(this, obj); },
 		classify: function RegularClassify(obj) { return obj instanceof this; }	// instanceof surrogate - in case of classy is changed to a regular class
 	});
 	
@@ -193,7 +190,7 @@ window.classy = (function() {
 				}
 			}
 			for(i=0; i<list.length; ++i) {
-				if(!fit4inheritance(clss = list[i])) throw new classy.exception('Unfitting inheritance : ' + i);
+				if('function'!== typeof (clss = list[i])) throw new classy.exception('Unfitting inheritance : ' + i);
 				if(classy!== clss.constructor) {
 					if(clss.constructor.classyVersion)
 						clss = clss.constructor.classyVersion;
@@ -318,7 +315,7 @@ window.classy = (function() {
 			members || (members = {});
 			classes = [members];
 			for(i=0; i<xtnds.length; ++i)
-				if(!fit4inheritance(xtnds[i])) throw new classy.exception('Unfitting inheritance : ' + i);
+				if(!(obj=xtnds[i]) || ('object'!== typeof obj && 'function'!== typeof obj)) throw new classy.exception('Unfitting inheritance : ' + i);
 				else classes.push('function'=== typeof xtnds[i]?xtnds[i]:xtnds[i].constructor);
 			classes.push(classy.singleton.root || (classy.singleton.root = classy({
 				constructor: function Singleton() {},
@@ -328,9 +325,7 @@ window.classy = (function() {
 				}
 			})));
 			mClass = classy.apply(this, classes);
-			fleg = mClass.fleg;
-			obj = new mClass();
-			return obj;
+			return new mClass();
 		}, {
 			extendedMember: function ClassyExtendedMember(me, mbrName) {
 				if(!(mbrName instanceof Array)) mbrName = [].slice.call(arguments, 1);
