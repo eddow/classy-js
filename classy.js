@@ -43,24 +43,20 @@ window.classy = (function() {
 		rootObject = {}, getSetCache = {}, constructorCalled = {};
 	Object.defineProperty(rootObject, 'legacy', {
 		enumerable: false,
-		get: function() {
-			var me= this, f = arguments.callee.caller, chain = f.caller, called;
-			if(chain) chain = chain.parent;
+		writable: false,
+		configurable: false,
+		value: function(args) {
+			var me= this, f = arguments.callee.caller, chain = f.caller;
 			if(chain) {
-				//TODO: use ('ClassyWrapper'=== chain.name) instead of (chain.bypass) ? (check multi-browser compatibility)
-				//https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/name#Browser_compatibility
-				//Checked (check again later) - not supported by IE
-				called = chain.bypass?chain.original||chain:chain;
-				return ext(function ClassyLegacy() { return called.apply(me, arguments); }, {
-					parent: chain.parent,
-					chain: ext(function ClassyChain() {
-						var args = [].slice.call(arguments, 0);
-						return called.apply(me, args.concat([].slice.call(f.arguments, args.length)));
-					}, {parent: chain.parent}),
-					apply: ext(function ClassyApply(args) { return called.apply(me, args); }, {parent: chain.parent})
-				});
+				chain = chain.parent;
+				if(chain) {
+					if(args && Array!== args.constructor) {
+						args = [].slice.call(arguments, 1);
+						args = args.concat([].slice.call(f.arguments, args.length));
+					}
+					return chain.apply(me, args||f.arguments);
+				}
 			}
-			return classy.emptyLegacy;
 		}
 	});
 	function setMbrs(obj, mbrs) {
@@ -308,10 +304,6 @@ window.classy = (function() {
 		return rv;
 	}, {
 		idSpace: idSpace,
-		emptyLegacy: ext(function() {}, {
-			chain: function() {},
-			apply: function() {}
-		}),
 		exception: ext(function ClassyException(msg) {
 			this.message = msg;
 		}, {
