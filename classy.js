@@ -78,15 +78,15 @@ window.classy = (function() {
 						function ClassyCacheSet() { return originalValue; }
 					):false
 			};
-			if(rv.set) rv.set.terminal;
-			if(rv.get) rv.get.terminal;
+			if(rv.set) rv.set.terminal = true;
+			if(rv.get) rv.get.terminal = true;
 			return rv;
 		}
 		function addLegacy(fct, last) {
 			if(!fct.original) return;	//This is the case for non-virtual functions
 			while(fct.parent) {
 				fct = fct.parent;
-				if(fct.isTerminal) return;
+				if(fct.terminal) return;
 			}
 			Object.defineProperty(fct, 'parent', {
 				value: last,
@@ -155,7 +155,7 @@ window.classy = (function() {
 		}
 	}
 	ext(Function.prototype, {
-		get terminal() { this.isTerminal = true; return this; },
+		def: function(obj) { ext(this, obj); return this; },
 		classify: function RegularClassify(obj) { return obj instanceof this; }	// instanceof surrogate - in case of classy is changed to a regular class
 	});
 	
