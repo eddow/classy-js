@@ -35,14 +35,14 @@ window.classy = (function() {
 	idSpace.prototype = {
 		toString: function() { return this.name; }
 	};
-	var base64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-',
+	var base64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_',
 		classCounter = new idSpace('classyClassCounter'), objectCounter = new idSpace('classyObjectCounter'),
 		rootObject = {}, getSetCache = {}, constructorCalled = {};
 	Object.defineProperty(rootObject, 'legacy', {
 		enumerable: false,
 		writable: false,
 		configurable: false,
-		value: function(args) {
+		value: function ClassyLegacy(args) {
 			var me= this, f = arguments.callee.caller, chain = f.caller;
 			if(chain) {
 				chain = chain.parent;
@@ -269,7 +269,11 @@ window.classy = (function() {
 			fname = '_'+cname.replace(/[^\w]/g, '_');
 		} else fname = cname = 'ClassyObject';
 		rv.constructor = eval('[function '+fname+'() { return ctor.apply(this, arguments); }]')[0];
-		
+		//@ mode debug
+		for(i in rv)
+			if('function'=== typeof rv[i] && (j=rv[i].original) && !j.name && !j.displayName)
+				j.displayName = cname+'->'+i;
+		//@ endmode
 		rv = ext(
 			rv.constructor,
 			classes = {
